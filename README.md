@@ -3780,33 +3780,405 @@ No, `let` is only available in **query syntax**. However, similar functionality 
 <br>
 
 ### 46. What are set operations in LINQ and how do you use them?
+### 1. **What Are Set Operations in LINQ**
 
+- Set operations are LINQ methods used to perform **mathematical set operations** like:
+  - Union
+  - Intersect
+  - Except
+  - Distinct
+- They help in **comparing**, **combining**, or **filtering** collections based on set theory principles.
+
+---
+
+### 2. **Union**
+
+- Combines two collections and returns **distinct elements** from both.
+- Syntax:
+  ```csharp
+  var result = list1.Union(list2);
+  ```
+
+---
+
+### 3. **Intersect**
+
+- Returns only the **common elements** between two collections.
+- Syntax:
+  ```csharp
+  var result = list1.Intersect(list2);
+  ```
+
+---
+
+### 4. **Except**
+
+- Returns elements that are in the **first collection but not in the second**.
+- Syntax:
+  ```csharp
+  var result = list1.Except(list2);
+  ```
+
+---
+
+### 5. **Distinct**
+
+- Removes **duplicate elements** from a collection.
+- Syntax:
+  ```csharp
+  var uniqueItems = list.Distinct();
+  ```
+
+---
+
+### 6. **Important Notes**
+
+- All set operations use the **default equality comparer** unless a custom one is specified.
+- For **custom types**, implement `IEquatable<T>` or override `Equals` and `GetHashCode`.
+
+---
+
+### 7. **Example**
+
+```csharp
+List<int> list1 = new List<int> { 1, 2, 3, 4 };
+List<int> list2 = new List<int> { 3, 4, 5, 6 };
+
+var union = list1.Union(list2);       // 1, 2, 3, 4, 5, 6
+var intersect = list1.Intersect(list2); // 3, 4
+var except = list1.Except(list2);     // 1, 2
+```
+
+---
+
+### Answer Summary
+
+- Set operations in LINQ: `Union`, `Intersect`, `Except`, and `Distinct`.
+- Help in comparing and manipulating collections using set theory.
+- `Union` combines, `Intersect` finds common, `Except` finds differences, and `Distinct` removes duplicates.
+- Use equality comparers to handle custom objects correctly.
 ---  
 <br>
 
 ### 47. Can you use custom functions in LINQ queries? If so, how?
+### 1. **Yes, You Can Use Custom Functions in LINQ**
 
+- You can define and use your own **methods (functions)** within LINQ queries to improve **readability**, **reusability**, and **separation of logic**.
+- These functions can be used in both **method syntax** and **query syntax** LINQ.
+
+---
+
+### 2. **Using Custom Functions in Method Syntax**
+
+```csharp
+public static bool IsEven(int number)
+{
+    return number % 2 == 0;
+}
+
+var evenNumbers = numbers.Where(IsEven);
+```
+
+- `IsEven` is a custom function used inside the `.Where()` clause.
+- This is especially helpful for **unit testing** and **code reuse**.
+
+---
+
+### 3. **Using Lambda Expressions with Custom Functions**
+
+```csharp
+var filtered = list.Where(x => CustomFilter(x));
+```
+
+- You can pass parameters and apply more complex logic.
+```csharp
+public static bool CustomFilter(string value)
+{
+    return value.StartsWith("A") && value.Length > 3;
+}
+```
+
+---
+
+### 4. **Using Custom Functions in Query Syntax**
+
+```csharp
+var result = from n in numbers
+             where IsPrime(n)
+             select n;
+
+public static bool IsPrime(int number)
+{
+    if (number < 2) return false;
+    for (int i = 2; i <= Math.Sqrt(number); i++)
+        if (number % i == 0) return false;
+    return true;
+}
+```
+
+- Works well with **query expressions**, making your LINQ logic easier to understand.
+
+---
+
+### 5. **Limitations with LINQ to SQL / LINQ to Entities**
+
+- Custom C# functions **cannot be translated to SQL**.
+- Only **supported methods** or **Entity Framework functions** can be used in LINQ to SQL or LINQ to Entities.
+- For such queries, fetch data to memory using `.ToList()` and then apply custom logic:
+```csharp
+var data = db.Table.Where(x => x.SomeField != null).ToList()
+                   .Where(x => CustomFunction(x));
+```
+
+---
+
+### Answer Summary
+
+- Custom functions can be used in LINQ to keep code clean and maintainable.
+- Use them in both method and query syntax.
+- Avoid them in LINQ to SQL/Entities before `ToList()` due to SQL translation limitations.
+- Ideal for complex filters, validation, or reusable logic.
 ---  
 <br>
 
 ### 48. How would you perform pagination of data with LINQ?
+### 1. **Understanding Pagination**
 
+- **Pagination** means splitting data into pages (chunks), commonly used in UI applications to avoid loading all data at once.
+- LINQ provides two useful methods for pagination:
+  - `Skip(n)` – skips a number of elements.
+  - `Take(m)` – takes a limited number of elements.
+
+---
+
+### 2. **Basic Pagination Syntax**
+
+```csharp
+int pageNumber = 2;
+int pageSize = 5;
+
+var pagedData = data.Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+```
+
+- Skips the records of previous pages: `(pageNumber - 1) * pageSize`
+- Takes only the records for the current page.
+
+---
+
+### 3. **Use Case Example**
+
+```csharp
+List<string> names = new List<string> { "A", "B", "C", "D", "E", "F", "G", "H" };
+
+int pageNumber = 2;
+int pageSize = 3;
+
+var result = names.Skip((pageNumber - 1) * pageSize)
+                  .Take(pageSize);
+```
+
+- **Result:** `["D", "E", "F"]`
+
+---
+
+### 4. **Pagination with Sorting**
+
+Always sort data before applying pagination to ensure consistent results:
+
+```csharp
+var result = products.OrderBy(p => p.Name)
+                     .Skip((pageNumber - 1) * pageSize)
+                     .Take(pageSize);
+```
+
+- Without sorting, results may be inconsistent across pages.
+
+---
+
+### 5. **When Working with Databases**
+
+- In LINQ to SQL or Entity Framework, `Skip()` and `Take()` are translated to efficient SQL queries (`OFFSET` and `FETCH`).
+
+---
+
+### 6. **Handling Total Pages and Records**
+
+```csharp
+int totalRecords = data.Count();
+int totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+```
+
+- Useful for showing pagination controls in the UI.
+
+---
+
+### Answer Summary
+
+- Use `Skip()` and `Take()` for pagination in LINQ.
+- Calculate records to skip using `(pageNumber - 1) * pageSize`.
+- Always sort data before paginating for consistency.
+- `Skip` and `Take` work with in-memory collections and database queries.
+- Combine with `Count()` to manage total pages and records.
 ---  
 <br>
 
 ### 49. Describe how to implement a full-text search with LINQ.
+### 1. **What Is Full-Text Search in LINQ?**
 
+- Full-text search allows searching through text data for keywords or patterns.
+- In LINQ, it means searching across one or multiple fields in a collection using string matching methods.
+
+---
+
+### 2. **Using `Contains` for Basic Search**
+
+```csharp
+var results = products.Where(p => p.Name.Contains("laptop"));
+```
+
+- `Contains()` checks if the text is found anywhere in the string.
+- Case-sensitive by default (unless adjusted).
+
+---
+
+### 3. **Case-Insensitive Search**
+
+```csharp
+var results = products.Where(p => p.Name.ToLower().Contains("laptop"));
+```
+
+- Normalize both the data and the search keyword for case-insensitive matching.
+
+---
+
+### 4. **Searching Across Multiple Fields**
+
+```csharp
+var keyword = "pro";
+var results = products.Where(p => 
+    p.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+    p.Description.Contains(keyword, StringComparison.OrdinalIgnoreCase));
+```
+
+- Combine multiple conditions with `||` (OR).
+- `StringComparison.OrdinalIgnoreCase` ensures it's case-insensitive.
+
+---
+
+### 5. **Search with Multiple Keywords**
+
+```csharp
+string[] keywords = { "laptop", "gaming" };
+
+var results = products.Where(p =>
+    keywords.Any(k =>
+        p.Name.Contains(k, StringComparison.OrdinalIgnoreCase) ||
+        p.Description.Contains(k, StringComparison.OrdinalIgnoreCase)));
+```
+
+- Checks if any of the keywords match in any of the fields.
+
+---
+
+### 6. **Using Regular Expressions (Optional)**
+
+```csharp
+var regex = new Regex("laptop|gaming", RegexOptions.IgnoreCase);
+
+var results = products.Where(p => regex.IsMatch(p.Name) || regex.IsMatch(p.Description));
+```
+
+- More flexible and powerful, but not translated to SQL, so only use in memory.
+
+---
+
+### 7. **With LINQ to SQL or EF (Database)**
+
+```csharp
+var results = db.Products
+    .Where(p => p.Name.Contains("laptop") || p.Description.Contains("laptop"))
+    .ToList();
+```
+
+- Ensure fields are indexed or use actual full-text indexes if needed for large datasets.
+- EF translates `Contains`, `StartsWith`, `EndsWith` to `LIKE` in SQL.
+
+---
+
+### Answer Summary
+
+- Full-text search in LINQ uses `Contains`, `StartsWith`, `EndsWith`, or regex.
+- Normalize text for case-insensitive search.
+- Search across multiple fields using `||`.
+- Use `Any()` for multi-keyword searches.
+- For database queries, LINQ translates to `LIKE` in SQL, but not full-text index by default.
 ---  
 <br>
 
 ### 50. What is the role of expression trees in LINQ?
+### 1. **What Are Expression Trees?**
 
----  
-<br>
-
-Absolutely! Here's the next batch — **LINQ Interview Questions 51 to 100**, same format as before:
+- Expression trees represent code in a tree-like data structure.
+- In LINQ, expression trees are used to represent queries as data that can be manipulated, analyzed, and converted into executable code, such as SQL or other query languages.
+- They are composed of `Expression` objects that represent elements of the query.
 
 ---
+
+### 2. **Role of Expression Trees in LINQ**
+
+- **Query Representation**: Expression trees allow LINQ queries to be represented as data, which makes them versatile and adaptable for querying different data sources, like databases, XML, etc.
+- **Deferred Execution**: LINQ queries are not executed immediately. Instead, expression trees allow deferred execution, meaning queries can be built and then executed at a later point in time.
+
+---
+
+### 3. **How Expression Trees Work in LINQ**
+
+- When you write a LINQ query, such as `Where(x => x.Age > 30)`, an expression tree is created that represents the structure of the query.
+- The tree is composed of nodes, where each node is an operation or expression, such as `>=`, `x.Age`, or `30`.
+- LINQ providers (like LINQ to SQL or LINQ to Entities) analyze the expression tree and convert it into the appropriate query for execution on the data source.
+
+---
+
+### 4. **Examples of Expression Trees in LINQ**
+
+```csharp
+// Lambda Expression
+Expression<Func<int, bool>> expr = x => x > 5;
+
+// Convert to Expression Tree
+var body = expr.Body; // Represents the expression "x > 5"
+```
+
+- `Expression<Func<int, bool>>` is a delegate type that holds the expression tree.
+- This can later be converted into SQL or other query languages by LINQ providers.
+
+---
+
+### 5. **Benefits of Expression Trees in LINQ**
+
+- **Flexibility**: Expression trees provide flexibility in building dynamic queries, such as in scenarios where you don't know the exact query at compile-time.
+- **Optimization**: Expression trees enable LINQ providers (e.g., Entity Framework) to optimize queries before execution.
+- **Cross-platform Queries**: They allow queries to be translated into the target query language, like SQL for databases or XPath for XML.
+
+---
+
+### 6. **Expression Trees vs. Delegate Expressions**
+
+- **Delegates**: Represent executable code, e.g., `Func<T>`, `Action<T>`.
+- **Expression Trees**: Represent code as data, which can be processed by LINQ providers to generate executable queries.
+
+---
+
+### Answer Summary
+
+- Expression trees represent LINQ queries as data that can be analyzed and executed later.
+- They allow LINQ queries to be deferred and converted into the appropriate query language (SQL, XML, etc.).
+- Provide flexibility and optimization in querying, especially in scenarios like dynamic query generation.
+- LINQ providers use expression trees to translate queries into executable code for different data sources.
+---  
+<br>
 
 ## 🛠 LINQ Performance and Optimization
 
