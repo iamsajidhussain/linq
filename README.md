@@ -33,7 +33,7 @@ Feel free to contribute to this repository and make it even more valuable for th
 ### 1. What is LINQ and why is it useful?
 **LINQ (Language Integrated Query)** is a feature in C# that enables you to query different types of data sources using a unified, readable, and consistent syntax directly within the C# language.
 
-### Key Features of LINQ:
+#### Key Features of LINQ:
 
 - **Consistent Querying**: LINQ provides a uniform way of querying different data sources such as collections, databases, XML, and more using the same syntax.
   
@@ -49,7 +49,7 @@ Feel free to contribute to this repository and make it even more valuable for th
 
 - **Integration with C# Features**: LINQ works seamlessly with anonymous types, lambda expressions, and extension methods, making it a powerful tool for working with collections and data sources.
 
-### Why LINQ is Useful:
+#### Why LINQ is Useful:
 
 - **Efficiency**: With LINQ, you avoid manually writing loops and conditional statements, simplifying data queries.
   
