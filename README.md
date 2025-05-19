@@ -4183,51 +4183,405 @@ var body = expr.Body; // Represents the expression "x > 5"
 ## 🛠 LINQ Performance and Optimization
 
 ### 51. How can you improve performance in LINQ queries?
+Improving performance in LINQ queries when using Entity Framework involves writing efficient queries and minimizing unnecessary data loading. Here are key strategies:
+
+1. **Use Projection with `Select`**
+
+   * Retrieve only the necessary fields instead of entire entities by projecting into DTOs or anonymous types.
+   * This reduces the data sent from the database and memory usage.
+
+2. **Avoid Loading Unnecessary Related Data**
+
+   * Use `.Include()` only when you need related entities.
+   * Avoid eager loading large object graphs if not needed; prefer lazy loading or explicit loading.
+
+3. **Filter Early and Precisely**
+
+   * Apply `.Where()` clauses as early as possible to reduce the dataset before further operations.
+   * Use precise filtering to avoid loading extra records.
+
+4. **Use AsNoTracking for Read-Only Queries**
+
+   * Disable change tracking with `.AsNoTracking()` for queries that do not require updates, reducing overhead and improving speed.
+
+5. **Avoid Client-Side Evaluation**
+
+   * Write queries that can be fully translated to SQL to prevent pulling data into memory for filtering or processing, which hurts performance.
+   * Check EF Core logs or warnings for client evaluation.
+
+6. **Use Compiled Queries (EF Core)**
+
+   * For frequently executed queries, use compiled queries to reduce query translation overhead.
+
+7. **Paginate Large Result Sets**
+
+   * Use `.Skip()` and `.Take()` to load data in pages rather than loading large datasets at once.
+
+8. **Optimize Joins and Navigation**
+
+   * Use efficient joins and avoid redundant includes or joins.
+
+9. **Index Your Database Properly**
+
+   * Ensure database indexes support your query filters and joins to speed up query execution.
+
+10. **Avoid N+1 Query Problems**
+
+    * Use `.Include()` smartly to load related entities in a single query rather than triggering multiple queries.
+
+**Answer Summary:**
+
+* Use projection (`Select`) to load only needed fields.
+* Filter early with `.Where()` to reduce data size.
+* Use `.AsNoTracking()` for read-only queries to improve speed.
+* Avoid client-side evaluation; write fully translatable queries.
+* Use compiled queries for repeated execution in EF Core.
+* Paginate large results with `.Skip()` and `.Take()`.
+* Load related data wisely with `.Include()` to avoid N+1 issues.
+* Ensure proper indexing in the database for efficient queries.
 
 ---  
 <br>
 
 ### 52. What is deferred execution and how does it affect performance?
+Deferred execution means that a LINQ query’s evaluation is delayed until you actually iterate over the results, such as with a `foreach` loop or by calling methods like `.ToList()`, `.Count()`, or `.First()`. The query is defined when you write it, but it’s only executed against the database when you access the data.
+
+### How Deferred Execution Works
+
+* When you create a LINQ query, EF builds an expression tree representing the query but doesn’t run it immediately.
+* Execution happens only when the results are needed (e.g., enumerating the query).
+* This allows query composition—adding filters or projections before execution.
+* Deferred execution can improve flexibility and optimize queries.
+
+### How Deferred Execution Affects Performance
+
+1. **Efficiency in Query Building**
+
+   * Because EF waits to execute, it combines all query parts into a single SQL command, which reduces round trips and unnecessary data loading.
+
+2. **Potential Pitfalls**
+
+   * If the underlying data context is disposed before execution, accessing results causes errors.
+   * Multiple enumerations of the same query cause multiple database hits, leading to redundant work and slower performance.
+   * If you defer execution too long or run complex queries multiple times, it can cause inefficient repeated database calls.
+
+3. **When to Force Immediate Execution**
+
+   * Calling `.ToList()`, `.ToArray()`, or similar methods forces the query to run immediately and caches the results in memory.
+   * Use immediate execution to avoid multiple database hits when the same data is needed repeatedly.
+
+4. **Impact on Memory and Network**
+
+   * Deferred execution lets you fetch only needed data when required, minimizing memory and network usage.
+   * However, careless repeated enumeration or complex queries can increase database load and latency.
+
+**Answer Summary:**
+
+* Deferred execution delays query running until results are accessed.
+* Allows building flexible, optimized queries combined into single SQL commands.
+* Improves performance by minimizing unnecessary data fetching.
+* Can cause multiple database hits if the query is enumerated multiple times.
+* Use `.ToList()` or `.ToArray()` to force immediate execution and cache results.
+* Requires careful management to avoid context disposal issues and redundant queries.
 
 ---  
 <br>
 
 ### 53. What is immediate execution in LINQ and when should it be used?
+Immediate execution means that a LINQ query runs and retrieves data from the database right away, rather than waiting until the data is accessed. This happens when you use methods like `.ToList()`, `.ToArray()`, `.Count()`, `.First()`, or `.Single()`. These methods force the query to execute immediately and materialize the results into memory.
+
+### When to Use Immediate Execution
+
+1. **When You Need Results Right Away**
+
+   * If your code needs the data immediately to proceed (e.g., displaying a list, processing records), force execution so data is ready.
+
+2. **To Avoid Multiple Database Calls**
+
+   * If you will iterate over the same query multiple times, use immediate execution once to load data into memory, preventing repeated database hits.
+
+3. **To Prevent Context Disposal Issues**
+
+   * If the database context might be disposed before you access the query results (e.g., outside the scope of the context), materialize the data immediately to avoid runtime errors.
+
+4. **When Debugging**
+
+   * Running queries immediately helps test and debug SQL generation and data retrieval without deferred complexities.
+
+5. **To Cache Data Snapshot**
+
+   * Immediate execution lets you cache query results, ensuring the data won’t change during subsequent operations.
+
+### Trade-offs
+
+* Immediate execution loads all data into memory, which may increase memory use.
+* Avoid forcing immediate execution unnecessarily on large datasets to prevent performance degradation.
+
+**Answer Summary:**
+
+* Immediate execution runs the LINQ query instantly and loads data into memory.
+* Triggered by methods like `.ToList()`, `.Count()`, `.First()`.
+* Use it when you need results immediately or to avoid multiple database calls.
+* Prevents errors if context disposal may occur before data access.
+* Useful for debugging and caching data snapshots.
+* Avoid overusing on large datasets to prevent high memory consumption.
 
 ---  
 <br>
 
 ### 54. Explain the differences between ToList(), ToArray(), and ToDictionary().
+`ToList()`, `ToArray()`, and `ToDictionary()` are LINQ extension methods that force immediate execution by materializing query results into different collection types. Here’s how they differ:
+
+1. **ToList()**
+
+   * Converts the query result into a `List<T>`.
+   * Creates a resizable collection that allows adding, removing, and modifying items after creation.
+   * Useful when you want to work with a mutable collection or need list-specific methods.
+
+2. **ToArray()**
+
+   * Converts the query result into an array (`T[]`).
+   * Arrays have a fixed size once created and cannot be resized.
+   * Slightly more efficient in terms of memory and access speed compared to `List<T>`, but less flexible.
+
+3. **ToDictionary()**
+
+   * Converts the query result into a `Dictionary<TKey, TValue>`.
+   * Requires a key selector function to specify how to extract keys from the items.
+   * Provides fast lookups by key but requires unique keys; duplicate keys cause exceptions.
+   * Useful when you need to quickly retrieve elements based on a unique key.
+
+### Summary of Differences
+
+| Method           | Result Type                | Collection Type  | Mutability              | Use Case                                       |
+| ---------------- | -------------------------- | ---------------- | ----------------------- | ---------------------------------------------- |
+| `ToList()`       | `List<T>`                  | Resizable list   | Mutable                 | When you want to modify the collection later.  |
+| `ToArray()`      | `T[]`                      | Fixed-size array | Immutable in size       | When you want fast access and no size changes. |
+| `ToDictionary()` | `Dictionary<TKey, TValue>` | Key-value map    | Mutable keys and values | When you need key-based fast lookup.           |
+
+**Answer Summary:**
+
+* `ToList()` creates a mutable resizable list.
+* `ToArray()` creates a fixed-size array, more memory-efficient.
+* `ToDictionary()` creates a key-value dictionary needing unique keys for fast lookups.
+* Use each based on mutability, access needs, and whether you need key-based access.
 
 ---  
 <br>
 
 ### 55. How does method chaining impact LINQ performance?
+Method chaining in LINQ means writing multiple query operators one after another, like `.Where().Select().OrderBy()`. It’s a way to build complex queries by combining simple operations.
+
+### Impact on Performance
+
+1. **No Immediate Performance Hit by Itself**
+
+   * LINQ uses deferred execution, so method chaining only builds an expression tree or query definition without running the query immediately.
+   * The actual SQL sent to the database combines all chained operations into one efficient query.
+
+2. **Helps Generate Optimized Queries**
+
+   * Chaining lets you build precise queries step-by-step, which EF translates into a single optimized SQL statement.
+   * This reduces the number of database round-trips and unnecessary data retrieval.
+
+3. **Potential Pitfalls**
+
+   * Excessive chaining with complex operations might lead to complicated SQL that can affect database query performance if not written carefully.
+   * Using multiple enumerations or switching between LINQ to Objects and LINQ to Entities in chains can cause performance issues (e.g., client-side evaluation).
+
+4. **Readable and Maintainable Code**
+
+   * Method chaining improves code readability and maintainability, making it easier to optimize queries.
+
+### Best Practices
+
+* Chain methods logically and filter early with `.Where()` to reduce data size.
+* Avoid unnecessary operators that complicate the query or cause client-side evaluation.
+* Always review generated SQL when chaining complex queries to ensure efficiency.
+
+**Answer Summary:**
+
+* Method chaining builds a combined query expression, not running queries immediately.
+* Enables EF to generate optimized single SQL queries, improving performance.
+* Excessive or poorly designed chaining can lead to complex SQL and slow queries.
+* Improves code readability and makes query optimization easier.
+* Filter early and avoid client-side evaluation for best performance.
 
 ---  
 <br>
 
 ### 56. What are pitfalls of using LINQ with large data sets?
+Using LINQ with large data sets can cause performance and resource issues if not handled carefully. Here are common pitfalls:
+
+1. **Loading Too Much Data into Memory**
+
+   * Queries that fetch entire tables or large result sets can consume excessive memory and slow down the application.
+   * Avoid `.ToList()` or `.ToArray()` on large datasets without filtering or pagination.
+
+2. **Inefficient Queries Causing Slow SQL**
+
+   * Complex LINQ queries can translate into inefficient SQL with multiple joins or subqueries, causing slow database performance.
+   * Not using indexes properly or filtering late increases query time.
+
+3. **Client-Side Evaluation**
+
+   * Parts of the LINQ query that cannot be translated to SQL are evaluated in memory, causing all data to be loaded first.
+   * This can drastically degrade performance and memory use on large datasets.
+
+4. **Multiple Enumerations of Queries**
+
+   * Enumerating the same query multiple times causes repeated database calls, increasing load and latency.
+
+5. **Lack of Pagination**
+
+   * Not using `.Skip()` and `.Take()` to load data in pages results in loading huge datasets at once, overwhelming memory and network.
+
+6. **Ignoring AsNoTracking for Read-Only Queries**
+
+   * Tracking entities in large queries adds overhead. Using `.AsNoTracking()` reduces memory and speeds up query execution when updates aren’t needed.
+
+7. **Not Using Projection**
+
+   * Selecting entire entities instead of only needed fields transfers unnecessary data and wastes bandwidth.
+
+**Answer Summary:**
+
+* Loading entire large datasets into memory causes high memory use and slowdowns.
+* Complex queries may generate inefficient SQL hurting DB performance.
+* Client-side evaluation loads too much data and slows execution.
+* Repeated enumeration causes multiple DB hits and latency.
+* Lack of pagination loads too much data at once.
+* Not using `.AsNoTracking()` for read-only queries adds overhead.
+* Avoid selecting full entities; use projection to fetch only needed fields.
 
 ---  
 <br>
 
 ### 57. Can LINQ queries be parallelized? How?
+Yes, LINQ queries can be parallelized using PLINQ (Parallel LINQ), which extends LINQ to execute queries in parallel across multiple CPU cores to improve performance, especially for CPU-bound operations.
+
+### How to Parallelize LINQ Queries
+
+* Use `.AsParallel()` on a LINQ query to enable parallel execution.
+* PLINQ divides the data source into partitions and processes them concurrently.
+* Example:
+
+  ```csharp
+  var results = dataCollection
+                .AsParallel()
+                .Where(x => x.SomeCondition)
+                .Select(x => x.SomeProjection)
+                .ToList();
+  ```
+
+### When to Use PLINQ
+
+* When working with large in-memory collections that require CPU-intensive operations.
+* Suitable for tasks like complex calculations, filtering, or transformations done on large data sets.
+
+### Limitations and Considerations
+
+* PLINQ works only on in-memory collections (LINQ to Objects), not on IQueryable (e.g., LINQ to Entities/EF queries).
+* Parallelization introduces overhead from managing threads, so it benefits only sufficiently large or complex workloads.
+* Side effects or non-thread-safe operations inside queries can cause issues.
+* Order of results may not be preserved unless you use `.AsOrdered()`.
+* Not suitable for I/O-bound operations like database queries, which should be optimized differently.
+
+**Answer Summary:**
+
+* LINQ queries on in-memory collections can be parallelized with PLINQ using `.AsParallel()`.
+* Improves performance for CPU-bound, large data set operations.
+* Not applicable for database queries (IQueryable) or I/O-bound tasks.
+* Introduces thread overhead and requires thread-safe query logic.
+* Use `.AsOrdered()` if result order matters.
 
 ---  
 <br>
 
 ### 58. What is PLINQ (Parallel LINQ)?
+PLINQ (Parallel LINQ) is a parallel implementation of LINQ that enables running queries concurrently across multiple CPU cores. It’s designed to improve performance for CPU-intensive operations on large in-memory collections by leveraging parallel processing.
+
+### Key Characteristics of PLINQ
+
+* **Parallel Execution:** Automatically divides data into partitions and processes them simultaneously on multiple threads.
+* **Easy to Use:** Just add `.AsParallel()` to a LINQ query to enable parallelism without changing the query structure much.
+* **Works on LINQ to Objects:** Only supports in-memory collections, not databases or remote sources.
+* **Optimizes Resource Usage:** Utilizes multiple processor cores, speeding up complex computations like filtering, projections, and aggregations.
+* **Supports Ordering and Cancellation:** You can preserve order using `.AsOrdered()` and cancel queries using cancellation tokens.
+
+### When to Use PLINQ
+
+* Large datasets requiring CPU-bound processing.
+* Situations where performance gains outweigh parallelization overhead.
+* Non-I/O-bound tasks that can safely run concurrently without shared state issues.
+
+### Limitations
+
+* Introduces thread management overhead, so small datasets may run slower.
+* Not suitable for database queries or I/O-bound operations.
+* Requires careful handling of thread safety and side effects.
+
+**Answer Summary:**
+PLINQ is a parallel extension of LINQ for in-memory collections, enabling queries to run concurrently across CPU cores using `.AsParallel()`. It boosts performance for CPU-heavy tasks but is not suitable for database or I/O operations and needs careful use to avoid threading issues.
 
 ---  
 <br>
 
 ### 59. When should you use PLINQ over regular LINQ?
+Use PLINQ over regular LINQ when you have large in-memory collections that require CPU-intensive processing and can benefit from parallel execution to improve performance. Specifically:
+
+1. **Large Data Sets:** When the collection is big enough that processing it sequentially would be slow.
+2. **CPU-Bound Operations:** Tasks like complex calculations, filtering, transformations, or aggregations where parallelism can speed up processing.
+3. **No Side Effects:** When your query operations are stateless and thread-safe, avoiding concurrency issues.
+4. **Non-I/O Bound:** When the workload is not limited by I/O operations like database calls or file access.
+5. **Performance Gains Outweigh Overhead:** Parallelism adds overhead managing threads, so PLINQ is beneficial only if it results in real speed improvements.
+
+### Avoid PLINQ When
+
+* Working with small collections (overhead may slow down execution).
+* Querying databases or remote sources (use regular LINQ to Entities).
+* Your query depends on preserving order (unless using `.AsOrdered()`, which may reduce parallel benefits).
+* Operations involve side effects or shared mutable state.
+
+**Answer Summary:**
+Use PLINQ over regular LINQ for large, CPU-intensive, thread-safe in-memory data processing where parallelism improves performance. Avoid it for small data, I/O-bound tasks, or queries with side effects or strict ordering requirements.
 
 ---  
 <br>
 
 ### 60. What are the limitations of PLINQ?
+PLINQ has several important limitations to consider:
+
+1. **Only Works with In-Memory Collections**
+
+   * PLINQ operates on LINQ to Objects and cannot be used with IQueryable sources like databases or remote services.
+
+2. **Threading Overhead**
+
+   * Parallel execution adds overhead for managing threads and splitting data, so for small datasets or simple queries, PLINQ may be slower than regular LINQ.
+
+3. **Non-Deterministic Ordering by Default**
+
+   * Results may come in a different order than the original sequence unless `.AsOrdered()` is explicitly used, which can reduce performance benefits.
+
+4. **Thread Safety Requirements**
+
+   * Query operations must be thread-safe and free from side effects. Mutable shared state or non-thread-safe code can cause bugs or crashes.
+
+5. **Limited Control Over Parallelism**
+
+   * While PLINQ lets you configure some aspects like degree of parallelism, it provides less fine-grained control compared to manual multithreading.
+
+6. **Not Suitable for I/O-Bound or External Operations**
+
+   * PLINQ is designed for CPU-bound work; it doesn’t improve performance for I/O-bound operations like database calls or file access.
+
+7. **Debugging Complexity**
+
+   * Parallel queries are harder to debug due to concurrency and nondeterministic behavior.
+
+**Answer Summary:**
+PLINQ only works on in-memory collections, adds threading overhead, and does not preserve order by default. It requires thread-safe, side-effect-free code, offers limited parallelism control, is unsuitable for I/O-bound tasks, and can be harder to debug due to concurrency.
 
 ---  
 <br>
@@ -4235,51 +4589,433 @@ var body = expr.Body; // Represents the expression "x > 5"
 ## 🧠 LINQ with Custom Types and Structures
 
 ### 61. How can you use LINQ with custom object collections?
+You can use LINQ seamlessly with custom object collections because LINQ works on any collection that implements `IEnumerable<T>` or `IQueryable<T>`. Here’s how to do it:
+
+1. **Define Your Custom Classes**
+
+   * Create your own classes with properties representing your data.
+
+2. **Create a Collection of Your Objects**
+
+   * Use lists, arrays, or any collection that implements `IEnumerable<T>`, e.g., `List<YourClass>`.
+
+3. **Write LINQ Queries on the Collection**
+
+   * Use LINQ query syntax or method syntax to filter, order, group, or select data from your custom objects.
+   * For example:
+
+   ```csharp
+   var filtered = yourList.Where(x => x.Property > 10)
+                          .OrderBy(x => x.Name)
+                          .Select(x => new { x.Name, x.Property });
+   ```
+
+4. **Use Projection and Aggregation**
+
+   * LINQ allows you to transform data by selecting specific properties or computing aggregates like sums and averages.
+
+5. **Combine with Custom Methods or Properties**
+
+   * LINQ can use any property or method on your custom objects as part of the query conditions or projections.
+
+### Benefits
+
+* Enables clean, readable, and expressive queries on in-memory custom data.
+* Supports deferred execution and chaining of multiple query operators.
+* Works with complex object hierarchies and nested collections.
+
+**Answer Summary:**
+LINQ works naturally with custom object collections by querying any `IEnumerable<T>` or `IQueryable<T>`. Define your classes, store them in collections like `List<T>`, and use LINQ methods (`Where`, `Select`, `OrderBy`, etc.) to filter, sort, and project your custom objects easily and expressively.
 
 ---  
 <br>
 
 ### 62. What’s the role of anonymous types in LINQ?
+Anonymous types play a crucial role in LINQ by allowing you to create lightweight, temporary objects without explicitly defining a class. They help shape the result of a query dynamically and concisely.
+
+### Key Roles of Anonymous Types in LINQ
+
+1. **Projection:**
+
+   * When you want to select only specific properties from objects instead of entire entities, anonymous types let you create new objects on the fly with just those properties.
+   * Example:
+
+     ```csharp
+     var result = people.Select(p => new { p.Name, p.Age });
+     ```
+
+2. **Grouping and Aggregation:**
+
+   * Anonymous types are useful for grouping data and returning grouped keys combined with aggregated values without needing custom classes.
+
+3. **Temporary Data Shaping:**
+
+   * Helps to transform data shape temporarily for further processing or UI binding without cluttering code with many class definitions.
+
+4. **Simplifies Code:**
+
+   * Removes the need for many small DTO (Data Transfer Object) classes when just projecting some fields.
+
+### Limitations
+
+* Anonymous types are local to the method where they are created; they cannot be returned from methods or passed easily outside their scope without using interfaces or dynamic typing.
+* They are immutable, meaning their properties are read-only.
+
+**Answer Summary:**
+Anonymous types in LINQ allow you to create temporary, read-only objects on the fly for selecting only needed properties or shaping query results. They simplify projection and grouping without needing explicit class definitions, making LINQ queries cleaner and more flexible.
 
 ---  
 <br>
 
 ### 63. How do you group custom objects by a specific property?
+To group custom objects by a specific property in LINQ, you use the `GroupBy` method, which organizes elements into groups based on a key selector function (usually a property).
+
+### Steps to Group Custom Objects by a Property
+
+1. **Have a Collection of Custom Objects**
+
+   * Example: `List<Person>` where `Person` has properties like `Age` or `Department`.
+
+2. **Use `GroupBy` with a Key Selector**
+
+   * Pass a lambda selecting the property you want to group by.
+   * Example grouping by `Department`:
+
+   ```csharp
+   var grouped = people.GroupBy(p => p.Department);
+   ```
+
+3. **Process Each Group**
+
+   * Each group is an `IGrouping<TKey, TElement>` where `TKey` is the property type and `TElement` is the object type.
+   * You can iterate groups and access the key and the grouped items:
+
+   ```csharp
+   foreach (var group in grouped)
+   {
+       Console.WriteLine($"Department: {group.Key}");
+       foreach (var person in group)
+       {
+           Console.WriteLine($"  {person.Name}");
+       }
+   }
+   ```
+
+4. **Optional: Project Group Results**
+
+   * You can select or transform groups into new shapes using `Select`:
+
+   ```csharp
+   var result = people.GroupBy(p => p.Department)
+                      .Select(g => new { Department = g.Key, Count = g.Count() });
+   ```
+
+**Answer Summary:**
+Use LINQ’s `GroupBy` method with a lambda selecting the property to group your custom objects. This creates groups keyed by that property, letting you iterate or transform grouped data easily, such as grouping people by department or category.
 
 ---  
 <br>
 
 ### 64. Can you perform LINQ queries on DataTables?
+Yes, you can perform LINQ queries on DataTables by using the `AsEnumerable()` extension method, which allows treating the rows of a DataTable as an enumerable collection of `DataRow` objects. This enables you to apply LINQ operators to query, filter, and transform data.
+
+### How to Use LINQ with DataTables
+
+1. **Import Namespace**
+
+   * Include `System.Data` and `System.Data.DataSetExtensions` to get LINQ support.
+
+2. **Call `AsEnumerable()` on the DataTable**
+
+   * Converts `DataTable` rows into `IEnumerable<DataRow>`.
+
+   ```csharp
+   var query = dataTable.AsEnumerable()
+                        .Where(row => row.Field<int>("Age") > 30)
+                        .OrderBy(row => row.Field<string>("Name"));
+   ```
+
+3. **Use `Field<T>()` Method to Access Column Values**
+
+   * Access column values strongly typed using `Field<T>` to avoid casting.
+
+   ```csharp
+   var names = dataTable.AsEnumerable()
+                        .Select(row => row.Field<string>("Name"))
+                        .ToList();
+   ```
+
+4. **Convert Results Back to DataTable (Optional)**
+
+   * Use `CopyToDataTable()` to get a filtered or transformed DataTable from the query result.
+
+   ```csharp
+   DataTable filteredTable = query.CopyToDataTable();
+   ```
+
+### Benefits
+
+* Enables powerful, readable queries on DataTable without manual looping.
+* Supports filtering, sorting, grouping, and projections.
+* Maintains strong typing and avoids errors from manual casting.
+
+**Answer Summary:**
+LINQ queries can be performed on DataTables by calling `AsEnumerable()` to treat rows as enumerable. Use `Field<T>()` to access typed column data, then apply LINQ operators like `Where`, `Select`, and `OrderBy`. You can also convert query results back to a DataTable using `CopyToDataTable()`.
 
 ---  
 <br>
 
 ### 65. How can you flatten a nested collection using LINQ?
+You can flatten a nested collection using LINQ’s `SelectMany` method, which projects each element of a collection to an `IEnumerable` and then flattens the resulting sequences into a single sequence.
+
+### How to Flatten a Nested Collection
+
+1. **Have a Collection with Nested Collections**
+
+   * Example: A list of objects each containing a collection property, like `List<Order>` where each `Order` has multiple `OrderItems`.
+
+2. **Use `SelectMany` to Flatten**
+
+   * `SelectMany` takes a lambda to select the inner collection from each outer element, and then combines all inner collections into one flat sequence.
+
+   ```csharp
+   var allItems = orders.SelectMany(order => order.OrderItems);
+   ```
+
+3. **Further Query or Project the Flattened Collection**
+
+   * After flattening, you can filter, order, or transform the combined items.
+
+   ```csharp
+   var expensiveItems = orders.SelectMany(o => o.OrderItems)
+                              .Where(item => item.Price > 100);
+   ```
+
+### Benefits
+
+* Simplifies working with hierarchical or nested data by producing a single-level collection.
+* Allows applying LINQ operations directly on all inner elements without nested loops.
+
+**Answer Summary:**
+Use LINQ’s `SelectMany` to flatten nested collections by projecting each outer element’s inner collection and merging them into one flat sequence. This helps process all nested items together without nested loops.
 
 ---  
 <br>
 
 ### 66. What is SelectMany and how is it different from Select?
+`Select` and `SelectMany` are both LINQ methods used to transform collections, but they serve different purposes and produce different results.
+
+### Select
+
+* Projects each element of a collection into a new form.
+* For each item, it returns a single transformed result (or object).
+* The result is a collection of the same size as the original, but with transformed elements.
+* Example:
+
+  ```csharp
+  var names = people.Select(p => p.Name);
+  ```
+* If the selector returns a collection (like a list) for each element, `Select` produces a collection of collections (nested collections).
+
+### SelectMany
+
+* Projects each element into a collection (or sequence) and then **flattens** all these collections into a single, one-dimensional collection.
+* Combines all inner collections from each element into one flat sequence.
+* Useful for working with nested collections.
+* Example:
+
+  ```csharp
+  var allOrders = customers.SelectMany(c => c.Orders);
+  ```
+
+### Key Difference
+
+* **Select** returns a collection of transformed elements or collections (nested if the selector returns collections).
+* **SelectMany** flattens nested collections into a single flat collection.
+
+**Answer Summary:**
+`Select` transforms each item into a single result, returning a collection with the same number of elements. `SelectMany` transforms each item into a collection and flattens all those collections into one single sequence. Use `SelectMany` to flatten nested collections; use `Select` for one-to-one projections.
 
 ---  
 <br>
 
 ### 67. How do you apply LINQ queries to dictionaries?
+You can apply LINQ queries directly to dictionaries because they implement `IEnumerable<KeyValuePair<TKey, TValue>>`. This allows you to query keys, values, or both together using LINQ operators.
+
+### How to Use LINQ with Dictionaries
+
+1. **Query Key-Value Pairs**
+
+   * Each dictionary element is a `KeyValuePair<TKey, TValue>`.
+   * Example: Filter by value:
+
+   ```csharp
+   var filtered = myDict.Where(kvp => kvp.Value > 10);
+   ```
+
+2. **Query Keys or Values Separately**
+
+   * Use `.Keys` or `.Values` to query only keys or values.
+
+   ```csharp
+   var keysStartingWithA = myDict.Keys.Where(k => k.StartsWith("A"));
+   var highValues = myDict.Values.Where(v => v > 100);
+   ```
+
+3. **Project Results**
+
+   * Use `Select` to transform key-value pairs into new forms.
+
+   ```csharp
+   var keyValueStrings = myDict.Select(kvp => $"{kvp.Key}: {kvp.Value}");
+   ```
+
+4. **Convert Back to Dictionary**
+
+   * After query and projection, convert back using `ToDictionary()`.
+
+   ```csharp
+   var newDict = filtered.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+   ```
+
+### Benefits
+
+* Enables filtering, sorting, grouping, and projection on dictionary entries easily.
+* Keeps type safety and readable code.
+
+**Answer Summary:**
+LINQ can be applied to dictionaries by querying their `KeyValuePair<TKey, TValue>` entries directly. Use `Where`, `Select`, and other LINQ methods on the dictionary itself, or on `.Keys` or `.Values`. You can also project and convert results back to a dictionary using `ToDictionary()`.
 
 ---  
 <br>
 
 ### 68. How can you filter based on nested properties using LINQ?
+To filter based on nested properties using LINQ, you simply access the nested property within the lambda expression inside methods like `Where`. LINQ lets you navigate through object hierarchies naturally.
+
+### How to Filter on Nested Properties
+
+1. **Have Objects with Nested Properties**
+
+   * Example: `Order` objects with a nested `Customer` property that has a `City` property.
+
+2. **Use Dot Notation Inside the Predicate**
+
+   * Access nested properties directly in the filter condition.
+
+   ```csharp
+   var ordersInNY = orders.Where(o => o.Customer.City == "New York");
+   ```
+
+3. **Handle Possible Null Values (Optional)**
+
+   * If nested properties can be null, use null-conditional operator to avoid exceptions:
+
+   ```csharp
+   var filtered = orders.Where(o => o.Customer?.City == "New York");
+   ```
+
+4. **Combine Multiple Nested Conditions**
+
+   * You can filter on multiple nested properties together:
+
+   ```csharp
+   var result = orders.Where(o => o.Customer.City == "New York" && o.Customer.Age > 30);
+   ```
+
+### Benefits
+
+* LINQ makes filtering nested data intuitive and concise.
+* Supports deep querying without extra loops or manual checks.
+
+**Answer Summary:**
+Filter nested properties in LINQ by accessing them directly with dot notation inside `Where` predicates, e.g., `Where(o => o.NestedProperty.SubProperty == value)`. Use null-conditional operators if nested properties might be null to avoid errors.
 
 ---  
 <br>
 
 ### 69. How can LINQ be used to remove duplicates?
+LINQ can remove duplicates easily using the `Distinct()` method, which returns unique elements from a collection by comparing them with default equality.
+
+### How to Remove Duplicates Using LINQ
+
+1. **For Simple Types (like int, string)**
+
+   * Just call `Distinct()` on the collection.
+
+   ```csharp
+   var uniqueNumbers = numbers.Distinct();
+   ```
+
+2. **For Complex Types (Custom Objects)**
+
+   * By default, `Distinct()` compares object references, so duplicates won’t be removed unless you override equality.
+   * Options:
+
+     * Override `Equals()` and `GetHashCode()` in your class.
+     * Implement `IEqualityComparer<T>` and pass it to `Distinct()`.
+
+   ```csharp
+   var uniquePeople = people.Distinct(new PersonComparer());
+   ```
+
+3. **Using GroupBy to Remove Duplicates Based on a Key**
+
+   * Another way is grouping by a property and selecting the first item from each group:
+
+   ```csharp
+   var uniqueByName = people.GroupBy(p => p.Name)
+                            .Select(g => g.First());
+   ```
+
+### Benefits
+
+* `Distinct()` is simple for primitive types.
+* For complex types, customizing equality or grouping provides flexible duplicate removal.
+
+**Answer Summary:**
+Use `Distinct()` to remove duplicates in LINQ for simple types. For custom objects, either override equality or provide an `IEqualityComparer<T>`. Alternatively, use `GroupBy` on a key and select the first item from each group to eliminate duplicates based on that key.
 
 ---  
 <br>
 
 ### 70. How do you sort a list of complex objects using multiple keys?
+To sort a list of complex objects by multiple keys using LINQ, you use the `OrderBy` method for the primary key and then chain `ThenBy` (or `ThenByDescending`) for additional sorting keys.
+
+### How to Sort by Multiple Keys
+
+1. **Start with `OrderBy` for the first key**
+
+   ```csharp
+   var sorted = people.OrderBy(p => p.LastName);
+   ```
+
+2. **Chain `ThenBy` for subsequent keys**
+
+   ```csharp
+   var sortedMulti = people.OrderBy(p => p.LastName)
+                           .ThenBy(p => p.FirstName)
+                           .ThenByDescending(p => p.Age);
+   ```
+
+3. **Use descending order with `OrderByDescending` or `ThenByDescending`**
+
+   * For descending order on any key, use the `Descending` version.
+
+4. **Works with any complex property, including nested ones**
+
+   ```csharp
+   var sortedNested = orders.OrderBy(o => o.Customer.City)
+                            .ThenBy(o => o.OrderDate);
+   ```
+
+### Benefits
+
+* Clear and readable way to perform multi-level sorting.
+* Supports ascending and descending ordering for each key.
+* Works well with LINQ query syntax and method syntax.
+
+**Answer Summary:**
+Use `OrderBy` for the first sort key and chain `ThenBy` or `ThenByDescending` for additional keys to sort complex objects by multiple criteria in LINQ. This creates a layered sort that is easy to read and flexible for ascending/descending orders.
 
 ---  
 <br>
@@ -4287,51 +5023,577 @@ var body = expr.Body; // Represents the expression "x > 5"
 ## 🔒 LINQ and Error Handling
 
 ### 71. What happens when a LINQ query throws an exception?
+When a LINQ query throws an exception, the behavior depends on whether the query uses deferred or immediate execution.
+
+### Deferred Execution
+
+* Most LINQ queries use deferred execution, meaning the query isn’t executed when defined but when enumerated (e.g., during `foreach`, `ToList()`, etc.).
+* Exceptions occur **at enumeration time**, not at query definition.
+* Example: If a query references a null object or invalid operation, the exception is thrown only when you iterate or force execution.
+
+### Immediate Execution
+
+* Methods like `ToList()`, `Count()`, `First()`, etc., execute the query immediately.
+* Exceptions are thrown immediately when these methods are called if there’s an issue (e.g., null reference, invalid cast).
+
+### Common Causes of Exceptions in LINQ
+
+* Accessing properties on null objects.
+* Invalid type casting.
+* Querying disposed or closed data sources (like a closed database context).
+* Divide by zero or other runtime errors inside query expressions.
+
+### Handling Exceptions
+
+* Use try-catch blocks around the enumeration or immediate execution calls.
+* Validate data before querying to avoid nulls or invalid operations.
+
+**Answer Summary:**
+Exceptions in LINQ queries typically happen during query execution, not definition. For deferred execution, errors surface when you enumerate the query. For immediate execution (e.g., `ToList()`), exceptions occur right away. Always handle exceptions around query execution to catch runtime issues like null references or invalid operations.
 
 ---  
 <br>
 
 ### 72. How do you handle exceptions in LINQ?
+Handling exceptions in LINQ involves anticipating potential runtime errors during query execution and managing them gracefully to prevent application crashes.
+
+### How to Handle Exceptions in LINQ
+
+1. **Use Try-Catch Blocks Around Query Execution**
+
+   * Since LINQ queries often use deferred execution, wrap the enumeration or immediate execution (like `ToList()`, `First()`) in a try-catch block.
+
+   ```csharp
+   try
+   {
+       var result = myCollection.Where(x => x.Property == value).ToList();
+   }
+   catch (Exception ex)
+   {
+       // Log or handle the exception appropriately
+   }
+   ```
+
+2. **Validate Data Before Querying**
+
+   * Check for nulls or invalid data that may cause exceptions inside predicates or projections.
+   * Use null-conditional operators or guards to prevent null reference exceptions:
+
+   ```csharp
+   var filtered = myCollection.Where(x => x?.NestedProperty != null && x.NestedProperty.Value > 10);
+   ```
+
+3. **Avoid Risky Operations Inside Queries**
+
+   * Don’t perform operations that may throw exceptions inside LINQ predicates or selectors (like division by zero, casting without checks).
+   * If needed, handle these cases explicitly outside or with conditional logic.
+
+4. **Use Safe Navigation and Defensive Programming**
+
+   * Use `?.` (null-conditional operator) and null-coalescing operators (`??`) to prevent exceptions on nested properties or missing data.
+
+5. **Custom Exception Handling in Complex Queries**
+
+   * In complex scenarios, split the query into smaller parts and add error handling or logging at each stage.
+
+### Benefits
+
+* Prevents app crashes from unhandled exceptions.
+* Improves reliability and user experience.
+* Makes debugging easier by isolating exception points.
+
+**Answer Summary:**
+Handle exceptions in LINQ by wrapping query execution in try-catch blocks, validating data before queries, avoiding risky operations inside predicates, and using null-conditional operators. Defensive programming ensures safe, robust queries without unexpected runtime errors.
 
 ---  
 <br>
 
 ### 73. Can you use try-catch inside a LINQ query?
+You cannot directly use a try-catch block **inside** a LINQ query expression or lambda because LINQ syntax and lambda expressions don’t support statements like try-catch—only expressions.
+
+### How to Handle Exceptions Related to LINQ Query Logic
+
+1. **Wrap the whole query or enumeration in try-catch**
+
+   * Instead of putting try-catch inside the query, enclose the code that executes the query in a try-catch block.
+
+   ```csharp
+   try
+   {
+       var result = myCollection.Select(x => SomeOperation(x)).ToList();
+   }
+   catch (Exception ex)
+   {
+       // Handle exception here
+   }
+   ```
+
+2. **Use helper methods with try-catch**
+
+   * If you need to handle exceptions for specific elements, create a method with try-catch that you call inside the LINQ query.
+
+   ```csharp
+   public int SafeParse(string s)
+   {
+       try { return int.Parse(s); }
+       catch { return 0; } // or other fallback
+   }
+
+   var numbers = strings.Select(s => SafeParse(s));
+   ```
+
+3. **Avoid exception-throwing code directly in LINQ lambdas**
+
+   * Instead, encapsulate risky operations in methods that handle exceptions, then call those methods inside the LINQ query.
+
+### Why Not Try-Catch Inside LINQ Lambdas?
+
+* LINQ lambdas must be expressions; try-catch is a statement block.
+* Mixing try-catch inside lambda expressions breaks syntax rules.
+
+**Answer Summary:**
+You cannot place try-catch blocks directly inside LINQ queries because lambdas require expressions, not statements. Instead, handle exceptions by wrapping query execution in try-catch or by calling helper methods with try-catch inside the LINQ expression to manage exceptions element-wise safely.
 
 ---  
 <br>
 
 ### 74. What are the common errors in LINQ queries?
+Common errors in LINQ queries often stem from incorrect assumptions about data, misuse of methods, or misunderstanding how deferred execution works. These mistakes can lead to runtime exceptions or incorrect results.
+
+### Common Errors
+
+1. **Null Reference Exceptions**
+
+   * Accessing properties of objects that might be null inside a query.
+   * Example:
+
+     ```csharp
+     var result = list.Where(x => x.Property.Length > 3); // x.Property may be null
+     ```
+
+2. **Invalid Cast Exceptions**
+
+   * Using `Cast<T>()` on non-uniform types or when the cast isn’t safe.
+   * Fix: Use `OfType<T>()` for filtering and safe casting.
+
+     ```csharp
+     var items = mixedList.OfType<string>(); // safe
+     ```
+
+3. **Deferred Execution Surprises**
+
+   * Query isn’t executed until enumerated; if data changes before enumeration, results may differ from what’s expected.
+   * Fix: Use `ToList()` to force immediate execution if needed.
+
+4. **Incorrect Use of First(), Single(), Last()**
+
+   * These methods throw exceptions if no match is found or more than one item exists (in `Single()` case).
+   * Fix: Use `FirstOrDefault()`, `SingleOrDefault()`, or check conditions beforehand.
+
+5. **Modifying a Collection During Enumeration**
+
+   * Attempting to change a collection while it’s being queried or iterated throws an exception.
+   * Fix: Materialize to a list before modifying:
+
+     ```csharp
+     var result = list.Where(x => x.IsActive).ToList();
+     ```
+
+6. **Performance Hits with Complex Queries**
+
+   * Overuse of `SelectMany`, `Join`, or nested queries without considering data size can degrade performance.
+
+7. **Inefficient Filtering**
+
+   * Putting `Where()` after `ToList()` causes filtering to happen in memory rather than in the database when using LINQ to Entities.
+   * Fix: Apply filters before `ToList()` for efficient query translation.
+
+8. **Unsupported Methods in LINQ to Entities**
+
+   * Some .NET methods can’t be translated to SQL (e.g., Regex, custom methods).
+   * Fix: Perform unsupported operations after materializing the query using `ToList()`.
+
+**Answer Summary:**
+Common LINQ errors include null reference exceptions, invalid casts, misuse of First()/Single(), modifying collections during iteration, deferred execution surprises, and using unsupported methods in LINQ to Entities. Avoid these by validating data, applying filters early, using safe casting (`OfType`), and handling exceptions with fallback methods.
 
 ---  
 <br>
 
 ### 75. How can you prevent null reference exceptions in LINQ?
+Null reference exceptions in LINQ happen when you try to access members of a null object inside a query. Preventing them is all about safely navigating potential null values and validating your data before accessing it.
+
+### Techniques to Prevent Null Reference Exceptions in LINQ
+
+1. **Use Null-Conditional Operators (`?.`)**
+
+   * Safely access nested properties without throwing an exception.
+   * Example:
+
+     ```csharp
+     var names = people
+         .Where(p => p?.Address?.City != null)
+         .Select(p => p.Name);
+     ```
+
+2. **Use Null-Coalescing Operator (`??`)**
+
+   * Provide a default value when a property might be null.
+   * Example:
+
+     ```csharp
+     var titles = books.Select(b => b.Title ?? "Untitled");
+     ```
+
+3. **Filter Out Nulls First**
+
+   * Exclude null elements before processing them.
+   * Example:
+
+     ```csharp
+     var validPeople = people.Where(p => p != null && p.Name != null);
+     ```
+
+4. **Use `DefaultIfEmpty()` for Nested Collections**
+
+   * When working with joins or nested lists, ensure collections aren’t null.
+   * Example:
+
+     ```csharp
+     var allOrders = customers
+         .SelectMany(c => c.Orders ?? Enumerable.Empty<Order>());
+     ```
+
+5. **Validate Input Collections**
+
+   * Always check if the main collection or its elements are null before querying.
+
+6. **Guard Clauses in Methods**
+
+   * If using a custom method in a LINQ query, ensure the method handles nulls properly.
+
+7. **Project Only Safe Values**
+
+   * Avoid deep navigation in projections unless null checks are added.
+
+### When Using LINQ to Entities
+
+* Use simple expressions only. Complex null-safe expressions or custom methods may not translate to SQL.
+* Use `EntityFunctions` or SQL-compatible checks when dealing with possible nulls.
+
+**Answer Summary:**
+Prevent null reference exceptions in LINQ by using null-conditional (`?.`) and null-coalescing (`??`) operators, filtering nulls early with `Where()`, using `DefaultIfEmpty()` for nested collections, and validating input collections. Always design queries and methods to safely handle null values and avoid deep property access without checks.
 
 ---  
 <br>
 
 ### 76. What is the Null-conditional operator and how is it used with LINQ?
+The null-conditional operator (`?.`) allows you to safely access members and methods of an object that might be null. Instead of throwing a `NullReferenceException`, it returns `null` and short-circuits the rest of the expression if the object is null.
+
+### How It Works
+
+The syntax is:
+
+```csharp
+object?.Property
+object?.Method()
+```
+
+If `object` is null, the result is null, and no exception is thrown.
+
+### Using `?.` in LINQ
+
+1. **Safe Property Access in Filters**
+
+   ```csharp
+   var results = people
+       .Where(p => p?.Address?.City == "London")
+       .Select(p => p.Name);
+   ```
+
+   This filters people whose address and city are not null and match "London".
+
+2. **Safe Property Access in Select**
+
+   ```csharp
+   var cities = people
+       .Select(p => p?.Address?.City)
+       .Where(city => city != null);
+   ```
+
+   This selects the city names but skips null entries.
+
+3. **Avoiding Exceptions in Deep Navigation**
+
+   ```csharp
+   var phones = users
+       .Select(u => u?.ContactInfo?.PhoneNumber)
+       .ToList();
+   ```
+
+   If `ContactInfo` is null, it returns `null` instead of throwing an error.
+
+4. **Used with Collections in SelectMany**
+
+   ```csharp
+   var allOrders = customers
+       .SelectMany(c => c?.Orders ?? Enumerable.Empty<Order>());
+   ```
+
+   This avoids errors if `Orders` is null.
+
+### Limitations
+
+* In LINQ to Entities (e.g., EF Core), the null-conditional operator may not always translate to SQL. Instead, use explicit null checks:
+
+  ```csharp
+  var result = context.People
+      .Where(p => p.Address != null && p.Address.City == "London");
+  ```
+
+**Answer Summary:**
+The null-conditional operator (`?.`) is used in LINQ to safely access members of potentially null objects, preventing `NullReferenceException`. It's helpful in filters, projections, and nested collections. Use it to simplify null checks, but be cautious when using it with LINQ to Entities, where not all expressions are translatable to SQL.
 
 ---  
 <br>
 
 ### 77. How to handle empty results in LINQ queries?
+Handling empty results in LINQ is important to avoid runtime errors and to provide fallback values or default behavior when a query returns nothing. LINQ provides several ways to detect and handle empty results effectively.
+
+### Common Techniques
+
+1. **Check with `Any()` Before Further Processing**
+
+   ```csharp
+   var items = data.Where(d => d.IsActive);
+   if (items.Any())
+   {
+       // Process items
+   }
+   else
+   {
+       // Handle empty result
+   }
+   ```
+
+2. **Use `DefaultIfEmpty()` to Provide a Fallback**
+
+   * Returns a default element if the sequence is empty.
+
+   ```csharp
+   var products = catalog
+       .Where(p => p.Price > 100)
+       .DefaultIfEmpty(new Product { Name = "No Product", Price = 0 });
+   ```
+
+3. **Use `FirstOrDefault()`, `SingleOrDefault()`, `LastOrDefault()`**
+
+   * These return the default value (`null` for reference types) if no match is found.
+
+   ```csharp
+   var user = users.FirstOrDefault(u => u.Name == "Sajid");
+   if (user == null)
+   {
+       // Handle not found
+   }
+   ```
+
+4. **Use Ternary or Null-Coalescing Operators for Fallback**
+
+   ```csharp
+   var name = users.FirstOrDefault()?.Name ?? "No user found";
+   ```
+
+5. **Use `.Count()` or `.Any()` to Inform UI or Logs**
+
+   ```csharp
+   var results = searchEngine.Find("keyword");
+   if (!results.Any())
+   {
+       Console.WriteLine("No matching records found.");
+   }
+   ```
+
+6. **Create Custom Default Logic**
+
+   ```csharp
+   var topProduct = products
+       .Where(p => p.IsTopSeller)
+       .FirstOrDefault() ?? new Product { Name = "Default Product" };
+   ```
+
+7. **Using `ToList()` to Avoid Multiple Enumeration**
+
+   ```csharp
+   var results = query.ToList();
+   if (results.Count == 0)
+   {
+       // Handle empty list
+   }
+   ```
+
+### When Using LINQ to Entities
+
+* `DefaultIfEmpty()` can sometimes produce unexpected results when used with joins. Use it carefully.
+* Always avoid assumptions that a query result will have data.
+
+**Answer Summary:**
+Empty results in LINQ can be handled using methods like `Any()`, `DefaultIfEmpty()`, and `FirstOrDefault()`. Use null-coalescing or fallback values to avoid exceptions. When handling collections, convert to `List` and check the count to ensure safe further processing. These techniques help create robust and predictable code.
 
 ---  
 <br>
 
 ### 78. What does the DefaultIfEmpty method do?
+`DefaultIfEmpty()` is a LINQ method that ensures a query always returns at least one result, even if the source sequence is empty. If the sequence has no elements, it inserts a default value (usually `null` for reference types or a provided value).
+
+### How It Works
+
+1. **Default Behavior (No Parameter):**
+
+   ```csharp
+   var items = list.Where(x => x > 100).DefaultIfEmpty();
+   ```
+
+   * If no items match, `items` will contain a single default element (e.g., `0` for `int`, `null` for reference types).
+
+2. **With a Custom Default Value:**
+
+   ```csharp
+   var items = list.Where(x => x > 100).DefaultIfEmpty(-1);
+   ```
+
+   * If no match is found, the result will contain `-1`.
+
+3. **Use in Query Chains:**
+
+   ```csharp
+   var product = products
+       .Where(p => p.Category == "Electronics")
+       .DefaultIfEmpty(new Product { Name = "No Product Found" })
+       .First();
+   ```
+
+4. **Common Use Case: Left Joins**
+
+   * Simulating a left join where no matches are found:
+
+   ```csharp
+   var result = from c in customers
+                join o in orders on c.Id equals o.CustomerId into co
+                from order in co.DefaultIfEmpty()
+                select new { c.Name, OrderId = order?.Id };
+   ```
+
+### Important Notes
+
+* If the original collection is not empty, `DefaultIfEmpty()` does nothing.
+* Use cautiously in Entity Framework as the generated SQL may vary depending on provider support.
+
+**Answer Summary:**
+`DefaultIfEmpty()` returns a default value when a LINQ query results in an empty sequence. It prevents errors from operating on empty collections and is especially useful in joins or fallback logic. By default, it returns `null` or `default(T)`, but a custom value can be provided.
 
 ---  
 <br>
 
 ### 79. What is the significance of the Cast<T>() and OfType<T>() methods?
+`Cast<T>()` and `OfType<T>()` are LINQ methods used to convert or filter elements in a non-generic `IEnumerable` (like `ArrayList`) to a specific type `T`. While they may look similar, they serve different purposes and behave differently when encountering elements that don't match the type.
+
+### `Cast<T>()` – Forceful Casting
+
+* **Purpose:** Attempts to cast every element to the specified type `T`.
+* **Throws an exception** if any element can't be cast.
+* **Use Case:** When you're sure all elements are of type `T`.
+
+```csharp
+ArrayList list = new ArrayList { 1, 2, 3 };
+var ints = list.Cast<int>();  // OK
+```
+
+```csharp
+ArrayList mixed = new ArrayList { 1, "two", 3 };
+// The following throws InvalidCastException
+var casted = mixed.Cast<int>();
+```
+
+### `OfType<T>()` – Safe Filtering
+
+* **Purpose:** Filters the collection to include only elements of type `T`.
+* **Skips** elements that cannot be cast to `T`.
+* **Use Case:** When working with mixed-type collections or unknown types.
+
+```csharp
+ArrayList mixed = new ArrayList { 1, "two", 3, "four" };
+var ints = mixed.OfType<int>();  // Only 1 and 3 will be included
+```
+
+### When to Use
+
+* Use `Cast<T>()` when you need all elements to be of type `T` and you're certain they are.
+* Use `OfType<T>()` when working with heterogeneous collections and only want items of a specific type.
+
+### Output Differences
+
+* `Cast<T>()` will fail fast on bad data.
+* `OfType<T>()` will silently skip invalid entries.
+
+**Answer Summary:**
+`Cast<T>()` forcefully casts all items in a collection to type `T` and throws an exception if any fail. `OfType<T>()` safely filters the collection, returning only elements of type `T` and skipping others. Use `Cast<T>()` when you're confident about the type, and `OfType<T>()` when dealing with mixed types.
 
 ---  
 <br>
 
 ### 80. How can you safely check for the existence of an element?
+To safely check for the existence of an element in a collection using LINQ, you can use the `Any()` method. It’s efficient and short-circuits—meaning it stops as soon as it finds a match.
+
+### Using `Any()` Method
+
+1. **Basic Existence Check:**
+
+   ```csharp
+   if (list.Any())
+   {
+       // List has at least one element
+   }
+   ```
+
+2. **Check with Condition (Predicate):**
+
+   ```csharp
+   if (list.Any(x => x.Age > 18))
+   {
+       // At least one item has Age > 18
+   }
+   ```
+
+3. **Avoiding `Count()` for Existence:**
+
+   ```csharp
+   // Not recommended
+   if (list.Count() > 0) { ... }
+   ```
+
+   * `Count()` scans the entire collection, which is inefficient.
+   * `Any()` stops at the first match, making it faster.
+
+4. **Check with Null or Empty List:**
+
+   ```csharp
+   if (list != null && list.Any())
+   {
+       // Safe check before using
+   }
+   ```
+
+5. **Safe Check in Queries:**
+
+   ```csharp
+   var hasOrders = customers
+       .Where(c => c.Id == customerId)
+       .SelectMany(c => c.Orders)
+       .Any(o => o.Total > 100);
+   ```
+
+**Answer Summary:**
+Use `Any()` to safely check for the existence of elements. It's fast, readable, and short-circuits for performance. Prefer `Any()` over `Count() > 0`, especially with large collections or queries. Always combine it with a null check for safety.
 
 ---  
 <br>
@@ -4339,51 +5601,465 @@ var body = expr.Body; // Represents the expression "x > 5"
 ## 🧮 LINQ Aggregation and Math Operations
 
 ### 81. What are LINQ aggregate functions?
+LINQ aggregate functions perform calculations on a sequence of values and return a single result. They are similar to SQL aggregate functions and help summarize or analyze data. LINQ provides several built-in aggregate methods that work on numeric, boolean, and custom data types.
+
+### Common LINQ Aggregate Functions
+
+1. **`Count()`**
+
+   * Returns the number of elements in a collection.
+
+   ```csharp
+   int total = list.Count();
+   int adults = list.Count(x => x.Age >= 18);
+   ```
+
+2. **`Sum()`**
+
+   * Adds up numeric values.
+
+   ```csharp
+   int totalAge = list.Sum(x => x.Age);
+   ```
+
+3. **`Average()`**
+
+   * Calculates the average of numeric values.
+
+   ```csharp
+   double avgAge = list.Average(x => x.Age);
+   ```
+
+4. **`Min()`**
+
+   * Returns the smallest value.
+
+   ```csharp
+   int minAge = list.Min(x => x.Age);
+   ```
+
+5. **`Max()`**
+
+   * Returns the largest value.
+
+   ```csharp
+   int maxAge = list.Max(x => x.Age);
+   ```
+
+6. **`Aggregate()`**
+
+   * Applies a custom accumulation function.
+
+   ```csharp
+   string sentence = words.Aggregate((a, b) => a + " " + b);
+   ```
+
+   * Can also take a seed value:
+
+   ```csharp
+   int total = list.Aggregate(0, (sum, x) => sum + x.Age);
+   ```
+
+### Use Cases
+
+* Summing invoice amounts
+* Counting records based on a filter
+* Finding max/min salaries
+* Generating a concatenated string
+* Custom reductions (e.g., multiplication)
+
+**Answer Summary:**
+LINQ aggregate functions like `Count()`, `Sum()`, `Average()`, `Min()`, `Max()`, and `Aggregate()` are used to compute a single value from a collection. They’re efficient and expressive for summarizing data, with `Aggregate()` offering custom logic for advanced scenarios.
 
 ---  
 <br>
 
 ### 82. How do you calculate the sum of a field using LINQ?
+To calculate the sum of a specific field using LINQ, use the `Sum()` method. This method takes a lambda expression that selects the field to be summed and returns the total of all its values.
+
+### Examples
+
+1. **Sum of a Numeric Property**
+
+   ```csharp
+   var totalSalary = employees.Sum(e => e.Salary);
+   ```
+
+2. **Sum with Filtering**
+
+   ```csharp
+   var totalBonus = employees
+       .Where(e => e.IsEligibleForBonus)
+       .Sum(e => e.BonusAmount);
+   ```
+
+3. **Sum on Anonymous Type Projection**
+
+   ```csharp
+   var total = list.Select(x => new { x.Price, x.Quantity })
+                   .Sum(x => x.Price * x.Quantity);
+   ```
+
+4. **Handling Nullable Fields**
+
+   ```csharp
+   var totalDiscount = orders.Sum(o => o.Discount ?? 0);
+   ```
+
+5. **Empty List Handling**
+
+   * `Sum()` on an empty list returns 0, not an exception.
+
+   ```csharp
+   var total = new List<int>().Sum(); // returns 0
+   ```
+
+### Use with Query Syntax
+
+```csharp
+var totalAge = (from p in people
+                select p.Age).Sum();
+```
+
+**Answer Summary:**
+Use the `Sum()` method with a lambda to calculate the total of a field. It supports filtering, projections, nullable values, and empty lists gracefully. It's ideal for aggregating numeric data in a single, readable line.
 
 ---  
 <br>
 
 ### 83. What’s the difference between Average and Sum?
+`Sum` and `Average` are both LINQ aggregate functions but serve different purposes:
+
+* **Sum:** Adds up all the numeric values in a collection and returns their total.
+
+  * Example: Sum of salaries = total payroll cost.
+  * Returns zero for empty collections.
+
+* **Average:** Calculates the mean value by dividing the sum of all numeric values by the number of elements.
+
+  * Example: Average age of employees = sum of all ages ÷ number of employees.
+  * Throws an exception if the collection is empty, so handle empty collections carefully.
+
+### Key Differences:
+
+* **Result:**
+
+  * `Sum` gives total quantity.
+  * `Average` gives the mean (central value).
+
+* **Behavior with Empty Collections:**
+
+  * `Sum` returns 0.
+  * `Average` throws `InvalidOperationException` (use `DefaultIfEmpty()` or check for emptiness).
+
+* **Use Cases:**
+
+  * Use `Sum` when you want total amounts or counts.
+  * Use `Average` to find typical or central values.
+
+**Answer Summary:**
+`Sum` calculates the total of values, while `Average` computes their mean. `Sum` returns 0 for empty sets; `Average` throws an exception if empty. Choose `Sum` for totals and `Average` for central tendencies.
 
 ---  
 <br>
 
 ### 84. How do you find the maximum or minimum value in a collection?
+To find the maximum or minimum value in a collection using LINQ, you use the `Max()` and `Min()` methods respectively. These methods return the largest or smallest value from a sequence, or based on a selected property.
+
+### Examples
+
+1. **Find Maximum Value in a Simple Numeric List**
+
+   ```csharp
+   int maxValue = numbers.Max();
+   int minValue = numbers.Min();
+   ```
+
+2. **Find Maximum or Minimum Based on a Property**
+
+   ```csharp
+   int maxAge = people.Max(p => p.Age);
+   int minAge = people.Min(p => p.Age);
+   ```
+
+3. **Find Object with Maximum or Minimum Property**
+
+   * Use `OrderByDescending` or `OrderBy` with `First()`:
+
+   ```csharp
+   var oldestPerson = people.OrderByDescending(p => p.Age).First();
+   var youngestPerson = people.OrderBy(p => p.Age).First();
+   ```
+
+4. **Handle Empty Collections Carefully**
+
+   * `Max()` and `Min()` throw exceptions if the sequence is empty.
+   * Use `DefaultIfEmpty()` or check for emptiness before calling.
+
+   ```csharp
+   int maxSafe = numbers.DefaultIfEmpty(0).Max();
+   ```
+
+### Notes
+
+* Works for any type that implements `IComparable`.
+* You can apply them on projections or computed values.
+
+**Answer Summary:**
+Use `Max()` and `Min()` to get the largest or smallest value from a collection or based on a property. For retrieving the entire object with the max/min property, combine with `OrderBy`/`OrderByDescending` and `First()`. Always handle empty collections to avoid exceptions.
 
 ---  
 <br>
 
 ### 85. How can you count elements conditionally?
+To count elements conditionally in LINQ, use the `Count()` method with a predicate (a condition expressed as a lambda). This filters elements matching the condition and returns their count.
+
+### Examples
+
+1. **Count with a Simple Condition**
+
+```csharp
+int adultsCount = people.Count(p => p.Age >= 18);
+```
+
+2. **Count with Multiple Conditions**
+
+```csharp
+int activeUsers = users.Count(u => u.IsActive && u.LastLogin > DateTime.Now.AddMonths(-1));
+```
+
+3. **Count with Complex Expressions**
+
+```csharp
+int premiumCustomers = customers.Count(c => c.Orders.Any(o => o.TotalAmount > 1000));
+```
+
+4. **Count All Elements (No Condition)**
+
+```csharp
+int totalItems = items.Count();
+```
+
+### Key Points
+
+* The predicate inside `Count()` returns `true` for elements to include in the count.
+* Efficient because filtering and counting happen in one pass.
+* Can be used with query or method syntax.
+
+**Answer Summary:**
+Use `Count(predicate)` to count elements that satisfy a condition. It filters and counts in one step, making it concise and efficient for conditional counts in collections.
 
 ---  
 <br>
 
 ### 86. What is Aggregate in LINQ?
+`Aggregate` in LINQ is a powerful method used to apply a custom accumulation or reduction operation on a collection. It processes each element and combines them into a single result based on a function you provide. Unlike predefined functions like `Sum` or `Average`, `Aggregate` allows you to define how elements are combined.
+
+### How It Works
+
+* Starts with an initial seed value (optional).
+* Applies a function that takes the current accumulated result and the next element.
+* Repeats this for all elements, producing a single final result.
+
+### Examples
+
+1. **Concatenate strings**
+
+```csharp
+var words = new[] { "Hello", "World", "LINQ" };
+string sentence = words.Aggregate((acc, word) => acc + " " + word);
+// Result: "Hello World LINQ"
+```
+
+2. **Calculate product of numbers**
+
+```csharp
+int product = numbers.Aggregate(1, (acc, n) => acc * n);
+```
+
+3. **Custom aggregation with seed and result selector**
+
+```csharp
+var totalLength = words.Aggregate(0, (acc, w) => acc + w.Length);
+```
+
+### When to Use
+
+* When built-in aggregates don’t fit your need.
+* For complex computations like concatenations, custom math, or combining objects.
+
+### Notes
+
+* Can throw exception if collection is empty and no seed is provided.
+* The seed parameter (optional) ensures a starting point and avoids empty collection issues.
+
+**Answer Summary:**
+`Aggregate` lets you perform custom, flexible accumulation on collections by applying a function that combines elements step-by-step into one final result. It’s ideal when standard aggregates like `Sum` or `Count` aren’t enough.
 
 ---  
 <br>
 
 ### 87. How do you group data and calculate totals per group?
+To group data and calculate totals per group in LINQ, you use the `GroupBy` method to organize elements by a key, then apply aggregation functions like `Sum()` within each group.
+
+### Steps
+
+1. Use `GroupBy` to group elements by a specific property.
+2. For each group, calculate the total using `Sum()` or another aggregate.
+3. Project the result into a new object or anonymous type containing the group key and total.
+
+### Examples
+
+```csharp
+var totalSalesByCategory = sales
+    .GroupBy(s => s.Category)
+    .Select(g => new
+    {
+        Category = g.Key,
+        TotalSales = g.Sum(s => s.Amount)
+    });
+```
+
+This groups `sales` by `Category` and calculates the sum of `Amount` in each group.
+
+### Query Syntax Example
+
+```csharp
+var totalByCategory = from s in sales
+                      group s by s.Category into g
+                      select new
+                      {
+                          Category = g.Key,
+                          TotalSales = g.Sum(x => x.Amount)
+                      };
+```
+
+### Notes
+
+* Grouping creates `IGrouping<TKey, TElement>` collections.
+* Aggregates like `Sum()`, `Count()`, `Average()`, etc., can be applied per group.
+* You can group by multiple keys using anonymous types: `.GroupBy(x => new { x.Prop1, x.Prop2 })`.
+
+**Answer Summary:**
+Use `GroupBy` to cluster data by a key, then calculate totals per group with `Sum()` inside a `Select` projection. This allows easy summarization of grouped data with totals or other aggregates.
 
 ---  
 <br>
 
 ### 88. What is the difference between Count and LongCount?
+`Count` and `LongCount` both count elements in a collection, but they differ in the size of the result they return:
+
+* **Count()** returns an `int` (32-bit integer), which can count up to about 2 billion elements.
+* **LongCount()** returns a `long` (64-bit integer), supporting much larger collections, exceeding 2 billion elements.
+
+### When to Use
+
+* Use **Count()** for typical collections with fewer than 2 billion items.
+* Use **LongCount()** when dealing with extremely large data sets where the number of elements might exceed the `int` limit.
+
+### Example
+
+```csharp
+int count = items.Count();
+long longCount = items.LongCount();
+```
+
+### Notes
+
+* Both support optional predicates for conditional counting.
+* `LongCount` is less commonly needed but essential for very large sequences.
+
+**Answer Summary:**
+`Count()` returns an `int` suitable for most cases, while `LongCount()` returns a `long` to handle collections larger than 2 billion items. Use `LongCount()` only when working with extremely large data sets.
 
 ---  
 <br>
 
 ### 89. How can you chain multiple aggregate functions together?
+You can chain multiple aggregate functions in LINQ by performing one aggregate after another, often by projecting intermediate results into new objects or using nested queries. Since each aggregate reduces the collection, you typically use `Select` or anonymous types to combine multiple aggregates in one query.
+
+### Ways to Chain Aggregates
+
+1. **Using a single query with multiple aggregates in `Select`:**
+
+```csharp
+var result = collection.GroupBy(x => x.Category)
+    .Select(g => new
+    {
+        Category = g.Key,
+        Total = g.Sum(x => x.Amount),
+        Count = g.Count(),
+        Average = g.Average(x => x.Amount),
+        Max = g.Max(x => x.Amount)
+    });
+```
+
+This calculates sum, count, average, and max per group simultaneously.
+
+2. **Sequential Aggregates on filtered data:**
+
+```csharp
+int total = collection.Sum(x => x.Value);
+int max = collection.Max(x => x.Value);
+```
+
+You call aggregates one after another on the collection.
+
+3. **Using `Aggregate()` for complex custom calculations:**
+
+```csharp
+var customResult = collection.Aggregate(
+    new { Sum = 0, Count = 0 },
+    (acc, x) => new { Sum = acc.Sum + x.Value, Count = acc.Count + 1 });
+```
+
+This combines multiple aggregates manually.
+
+### Notes
+
+* Aggregate functions like `Sum()`, `Count()`, `Average()`, `Max()`, and `Min()` can be used together in one query projection.
+* Avoid excessive enumeration by combining aggregates in one query instead of multiple passes over the data.
+* Grouping helps apply multiple aggregates per group efficiently.
+
+**Answer Summary:**
+Chain multiple aggregates by projecting them together in a `Select` after grouping or directly on a collection. This avoids multiple passes and lets you compute sum, count, average, max, etc., in one go, keeping queries efficient and readable.
 
 ---  
 <br>
 
 ### 90. What is the use of SequenceEqual in LINQ?
+`SequenceEqual` in LINQ is used to compare two sequences (like arrays, lists, or any enumerable collections) to determine if they are equal in terms of both order and elements.
+
+### How It Works
+
+* Returns `true` if both sequences have the same number of elements.
+* Each corresponding element in the sequences must be equal (using default equality comparer or a custom one you provide).
+* Returns `false` if sequences differ in length or any element differs.
+
+### Example
+
+```csharp
+var first = new[] { 1, 2, 3 };
+var second = new[] { 1, 2, 3 };
+bool areEqual = first.SequenceEqual(second); // true
+
+var third = new[] { 3, 2, 1 };
+bool areNotEqual = first.SequenceEqual(third); // false (order differs)
+```
+
+### Use Cases
+
+* Checking if two lists or arrays are exactly the same.
+* Validating ordered results.
+* Testing scenarios or comparing query outputs.
+
+### Notes
+
+* If you want to compare without order, use other methods like sorting first or `Set` operations.
+* You can pass a custom `IEqualityComparer<T>` for complex types.
+
+**Answer Summary:**
+`SequenceEqual` checks if two sequences have identical elements in the same order, returning true only if they match exactly. It’s useful to verify ordered equality between collections.
 
 ---  
 <br>
@@ -4391,51 +6067,440 @@ var body = expr.Body; // Represents the expression "x > 5"
 ## 🧩 LINQ in Real-World Scenarios
 
 ### 91. How can you filter log files using LINQ?
+You can filter log files using LINQ by reading the log entries into a collection (like a list of strings or objects), then applying LINQ `Where` clauses to filter based on criteria such as date, severity, keywords, or message content.
+
+### Steps
+
+1. **Read log file lines** into a collection, e.g., `File.ReadAllLines()` or streaming with `File.ReadLines()`.
+2. **Parse lines** into structured objects (optional but recommended) with properties like Timestamp, Level, Message.
+3. **Apply LINQ filtering** using `Where` to select lines matching conditions.
+
+### Example: Filter log lines containing "Error"
+
+```csharp
+var lines = File.ReadLines("logfile.txt");
+
+var errorLines = lines.Where(line => line.Contains("Error"));
+```
+
+### Example: Filter by date and severity after parsing
+
+```csharp
+var logs = File.ReadLines("logfile.txt")
+    .Select(line => ParseLogLine(line))  // ParseLogLine returns LogEntry object
+    .Where(log => log.Level == "Error" && log.Timestamp >= DateTime.Today.AddDays(-1));
+```
+
+### Notes
+
+* Parsing logs into objects makes filtering easier and more precise.
+* Use case-insensitive filters with `IndexOf` or `ToLower()`.
+* For large logs, prefer streaming with `File.ReadLines()` to avoid loading entire file in memory.
+
+**Answer Summary:**
+Filter log files by reading lines into a collection and using LINQ’s `Where` clause to select entries based on keywords, severity, or date. Parsing logs into objects allows more precise filtering on structured fields.
 
 ---  
 <br>
 
 ### 92. How would you use LINQ to generate reports?
+You can use LINQ to generate reports by querying and transforming data collections into structured summaries or aggregated results that match your reporting needs. LINQ allows filtering, grouping, sorting, and projecting data into report-friendly formats.
+
+### How to Use LINQ for Reporting
+
+1. **Load Data:** Get data from databases, collections, or external sources.
+2. **Filter:** Use `Where` to include only relevant records.
+3. **Group:** Use `GroupBy` to categorize data by keys like date, category, or status.
+4. **Aggregate:** Use aggregate functions (`Sum`, `Count`, `Average`, `Max`, `Min`) to calculate totals or averages.
+5. **Project:** Use `Select` to shape the result into report objects or anonymous types.
+6. **Sort:** Use `OrderBy` or `OrderByDescending` to order the report data.
+
+### Example: Sales Report by Product Category
+
+```csharp
+var salesReport = salesData
+    .Where(sale => sale.Date >= startDate && sale.Date <= endDate)
+    .GroupBy(sale => sale.Category)
+    .Select(g => new 
+    {
+        Category = g.Key,
+        TotalSales = g.Sum(s => s.Amount),
+        NumberOfOrders = g.Count(),
+        AverageOrderValue = g.Average(s => s.Amount)
+    })
+    .OrderByDescending(r => r.TotalSales);
+```
+
+### Benefits
+
+* Produces concise summaries directly from raw data.
+* Enables dynamic and flexible report creation.
+* Integrates seamlessly with databases via Entity Framework.
+* Supports complex multi-level grouping and calculations.
+
+### Notes
+
+* For large data sets, optimize queries to avoid performance issues.
+* You can export LINQ query results to formats like CSV, Excel, or PDF for presentation.
+* LINQ query expressions or method syntax both work well for reports.
+
+**Answer Summary:**
+LINQ is used to generate reports by filtering, grouping, aggregating, and projecting data into summary formats. It helps produce clear, dynamic reports directly from collections or databases with simple, readable queries.
 
 ---  
 <br>
 
 ### 93. How can LINQ be used for form validation?
+LINQ can help simplify form validation by querying form data collections or input models to quickly check conditions, identify invalid entries, or aggregate validation results.
+
+### How LINQ Helps in Form Validation
+
+1. **Check for Missing or Invalid Fields:** Use `Where` to find inputs that don’t meet criteria (e.g., empty, null, or out-of-range values).
+2. **Aggregate Validation Results:** Use `Any`, `All`, or `Count` to determine if the form passes overall validation rules.
+3. **Collect Error Messages:** Use `Select` to generate a list of error messages for invalid fields.
+4. **Validate Collections:** For forms with multiple inputs of the same type (e.g., multiple addresses), LINQ can validate each item easily.
+
+### Example: Validate required fields
+
+```csharp
+var errors = formFields
+    .Where(field => string.IsNullOrWhiteSpace(field.Value))
+    .Select(field => $"{field.Name} is required.")
+    .ToList();
+
+bool isValid = !errors.Any();
+```
+
+### Example: Validate numeric range in form inputs
+
+```csharp
+var invalidNumbers = formFields
+    .Where(f => f.Type == "number" && (int.Parse(f.Value) < 1 || int.Parse(f.Value) > 100))
+    .Select(f => $"{f.Name} must be between 1 and 100.");
+```
+
+### Benefits
+
+* Provides concise, readable validation logic.
+* Easily extendable for complex validation rules.
+* Works well for both simple forms and collections of inputs.
+* Enables collecting all validation errors at once for user feedback.
+
+**Answer Summary:**
+LINQ simplifies form validation by querying input collections to find invalid or missing fields, aggregating validation checks, and generating error messages cleanly and efficiently. It helps keep validation logic concise and easy to maintain.
 
 ---  
 <br>
 
 ### 94. Can LINQ be used for data transformation/mapping? How?
+Yes, LINQ is excellent for data transformation and mapping. It allows you to convert data from one shape or structure to another by projecting elements into new forms.
+
+### How LINQ Performs Data Transformation
+
+* Use the `Select` method to project each item in a collection into a new form or object.
+* You can map properties from source objects to destination objects or anonymous types.
+* Supports complex transformations, including combining, splitting, or formatting data during projection.
+
+### Example: Mapping Entity to DTO (Data Transfer Object)
+
+```csharp
+var userDTOs = users.Select(u => new UserDTO
+{
+    Id = u.Id,
+    FullName = u.FirstName + " " + u.LastName,
+    Email = u.EmailAddress
+}).ToList();
+```
+
+### Example: Transforming and Formatting Data
+
+```csharp
+var formattedOrders = orders.Select(o => new
+{
+    OrderId = o.Id,
+    Date = o.OrderDate.ToString("yyyy-MM-dd"),
+    Total = o.Quantity * o.UnitPrice
+});
+```
+
+### Benefits
+
+* Cleanly separates data models from presentation or transport layers.
+* Enables easy creation of customized views or reports.
+* Helps with immutability by creating new transformed collections instead of modifying originals.
+
+### Notes
+
+* Transformation with LINQ is usually deferred until enumerated, improving performance.
+* Works well with collections, arrays, database queries, or any enumerable data source.
+
+**Answer Summary:**
+LINQ uses the `Select` method to transform and map data by projecting each item into a new shape or object. This allows easy, clean conversion of data models for presentation, transport, or further processing.
 
 ---  
 <br>
 
 ### 95. How would you search a tree or hierarchy with LINQ?
+Searching a tree or hierarchical data structure with LINQ requires a recursive approach because LINQ itself doesn’t provide built-in recursive querying. You typically create a helper method that recursively traverses nodes and applies the LINQ query on each level.
+
+### How to Search a Tree with LINQ
+
+1. **Define a recursive method:** This method takes a collection of nodes and returns matches including children.
+2. **Use LINQ to filter current nodes.**
+3. **Recursively search child nodes and combine results.**
+4. **Return a flattened list or a filtered hierarchical structure.**
+
+### Example: Searching nodes by a condition in a tree
+
+```csharp
+public class TreeNode
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public List<TreeNode> Children { get; set; }
+}
+
+public IEnumerable<TreeNode> SearchTree(IEnumerable<TreeNode> nodes, string searchTerm)
+{
+    var matchedNodes = nodes.Where(n => n.Name.Contains(searchTerm));
+
+    var matchedChildren = nodes
+        .SelectMany(n => SearchTree(n.Children ?? new List<TreeNode>(), searchTerm));
+
+    return matchedNodes.Concat(matchedChildren);
+}
+```
+
+### Benefits
+
+* Enables searching complex nested structures.
+* Flexible for different search criteria.
+* Returns all matching nodes across all hierarchy levels.
+
+### Notes
+
+* Recursive traversal is necessary because LINQ doesn’t handle recursion directly.
+* Beware of stack overflow with very deep trees — consider iterative solutions if needed.
+
+**Answer Summary:**
+To search a tree with LINQ, create a recursive method that applies LINQ filtering at each node level and recursively searches child nodes. Combine results to get all matches throughout the hierarchy. This approach lets you efficiently find nodes in nested structures.
 
 ---  
 <br>
 
 ### 96. How do you handle case-insensitive string comparisons?
+Handling case-insensitive string comparisons in LINQ or Entity Framework involves using methods that ignore letter casing, ensuring matches regardless of uppercase or lowercase differences.
+
+### Ways to Handle Case-Insensitive Comparisons
+
+1. **Use `String.Equals` with StringComparison:**
+
+   ```csharp
+   string.Equals(str1, str2, StringComparison.OrdinalIgnoreCase);
+   ```
+
+   But note: this works only in LINQ to Objects, not in LINQ to Entities (EF).
+
+2. **Convert both strings to a common case (usually lowercase) using `ToLower()` or `ToUpper()`:**
+
+   ```csharp
+   var result = context.Users
+       .Where(u => u.Name.ToLower() == searchName.ToLower())
+       .ToList();
+   ```
+
+   This works in both LINQ to Objects and EF but may affect performance because of function calls in SQL.
+
+3. **Use EF Core 5+ case-insensitive string comparisons with `EF.Functions.Like`:**
+
+   ```csharp
+   var result = context.Users
+       .Where(u => EF.Functions.Like(u.Name, searchName))
+       .ToList();
+   ```
+
+   `Like` is case-insensitive depending on database collation.
+
+4. **Configure database collation:**
+   If your database or column collation is case-insensitive, comparisons are automatically case-insensitive without extra code.
+
+### Notes:
+
+* Avoid calling `ToLower()`/`ToUpper()` on large datasets frequently as it may hurt performance.
+* For in-memory collections, use `StringComparison.OrdinalIgnoreCase` with `.Equals` or `.Contains`.
+
+**Answer Summary:**
+To handle case-insensitive string comparisons, you can use `ToLower()` or `ToUpper()` in queries, rely on database collation settings, or use EF Core’s `EF.Functions.Like`. In-memory, prefer `StringComparison.OrdinalIgnoreCase`. This ensures string matching ignores letter casing across LINQ and EF queries.
 
 ---  
 <br>
 
 ### 97. How can you join more than two collections?
+Joining more than two collections in LINQ is done by chaining multiple `Join` operations or by using query syntax with multiple `join` clauses. Each additional join connects another collection based on matching keys.
+
+### How to Join More Than Two Collections
+
+1. **Using Method Syntax (chained `Join`):**
+
+```csharp
+var result = collection1
+    .Join(collection2,
+          c1 => c1.Key,
+          c2 => c2.Key,
+          (c1, c2) => new { c1, c2 })
+    .Join(collection3,
+          temp => temp.c1.OtherKey,
+          c3 => c3.Key,
+          (temp, c3) => new { temp.c1, temp.c2, c3 })
+    .ToList();
+```
+
+* First, join collection1 and collection2.
+* Then join the intermediate result with collection3.
+* You can continue chaining joins similarly for more collections.
+
+2. **Using Query Syntax:**
+
+```csharp
+var result = from c1 in collection1
+             join c2 in collection2 on c1.Key equals c2.Key
+             join c3 in collection3 on c1.OtherKey equals c3.Key
+             select new { c1, c2, c3 };
+```
+
+### Notes:
+
+* Each join requires a key selector for both collections.
+* Joins can be inner joins (default) or left joins (using `GroupJoin` and `DefaultIfEmpty`).
+* Complex joins may require anonymous or custom types to hold intermediate results.
+* For large datasets, be mindful of performance and query translation, especially with EF.
+
+**Answer Summary:**
+You join more than two collections in LINQ by chaining multiple `Join` calls or using multiple `join` clauses in query syntax. Each join links collections on matching keys, enabling complex multi-collection queries in a clean and readable way.
 
 ---  
 <br>
 
 ### 98. How can you find common elements between two lists?
+To find common elements between two lists in LINQ, you use the `Intersect` method. It returns the set of elements that appear in both collections.
+
+### How to Find Common Elements
+
+```csharp
+var commonElements = list1.Intersect(list2).ToList();
+```
+
+* `Intersect` compares elements and returns those that exist in both lists.
+* Works with simple types (like integers, strings) or complex types if equality is defined.
+* For custom objects, override `Equals` and `GetHashCode` or provide a custom `IEqualityComparer`.
+
+### Example with strings:
+
+```csharp
+List<string> list1 = new() { "apple", "banana", "cherry" };
+List<string> list2 = new() { "banana", "cherry", "date" };
+
+var common = list1.Intersect(list2);  // Result: "banana", "cherry"
+```
+
+### Notes:
+
+* `Intersect` performs a set operation, so duplicates are removed in the result.
+* For case-insensitive comparison, use an `IEqualityComparer` that ignores case.
+* If you need duplicates included, use other methods like nested `Where` or `Join`.
+
+**Answer Summary:**
+Use LINQ’s `Intersect` method to find common elements between two lists. It returns distinct elements present in both collections and works well for simple types or custom objects with proper equality definitions.
 
 ---  
 <br>
 
 ### 99. How can you calculate running totals in LINQ?
+Calculating running totals (cumulative sums) in LINQ requires accumulating values as you iterate through a collection. Since LINQ doesn’t have built-in stateful operations, you can achieve this with `Select` plus an external variable or by using `Aggregate`.
+
+### Using `Select` with an external accumulator:
+
+```csharp
+int runningTotal = 0;
+var runningTotals = numbers.Select(n => runningTotal += n).ToList();
+```
+
+* `runningTotal` holds the cumulative sum.
+* Each element is transformed into the sum up to that point.
+
+### Using `Aggregate` for a more functional approach:
+
+```csharp
+var runningTotals = numbers.Aggregate(new List<int>(), (acc, n) =>
+{
+    int sum = (acc.LastOrDefault() + n);
+    acc.Add(sum);
+    return acc;
+});
+```
+
+* `Aggregate` accumulates the sums in a list.
+* Returns a list of running totals.
+
+### Example:
+
+```csharp
+var numbers = new List<int> { 1, 2, 3, 4 };
+var runningTotals = numbers.Select((n, index) => numbers.Take(index + 1).Sum()).ToList();
+// Result: [1, 3, 6, 10]
+```
+
+But this approach (`Take`+`Sum`) is inefficient for large collections as it recalculates sums repeatedly.
+
+### Best practice: use external variable with `Select` for performance.
+
+**Answer Summary:**
+To calculate running totals in LINQ, use a variable outside `Select` to accumulate sums as you project each element, or use `Aggregate` to build a list of cumulative sums. This way, you efficiently produce a sequence of running totals without redundant calculations.
 
 ---  
 <br>
 
 ### 100. How do you handle paging and sorting in a web application using LINQ?
+Handling paging and sorting in a web application using LINQ involves applying order and then selecting a subset of data based on page size and number.
+
+### Sorting:
+
+Use `OrderBy` or `OrderByDescending` to sort data by one or more keys.
+
+```csharp
+var sortedData = data.OrderBy(x => x.Property);
+```
+
+For multiple keys, use `ThenBy` or `ThenByDescending`.
+
+### Paging:
+
+Use `Skip` and `Take` to select a specific page of data.
+
+* `Skip((pageNumber - 1) * pageSize)` skips records from previous pages.
+* `Take(pageSize)` takes only the records for the current page.
+
+### Example:
+
+```csharp
+int pageNumber = 2;
+int pageSize = 10;
+
+var pagedData = data
+    .OrderBy(x => x.Name)             // Sort by Name
+    .Skip((pageNumber - 1) * pageSize)  // Skip previous pages
+    .Take(pageSize)                   // Take current page
+    .ToList();
+```
+
+### Notes:
+
+* Always apply sorting before paging to ensure consistent results.
+* When working with EF or databases, LINQ will translate this to efficient SQL with `ORDER BY`, `OFFSET`, and `FETCH`.
+* For dynamic sorting, use reflection or switch statements to apply the correct sorting property.
+
+**Answer Summary:**
+Use LINQ’s `OrderBy` and `ThenBy` for sorting, followed by `Skip` and `Take` for paging. Sort data first, then skip and take the desired records for the page, ensuring efficient, consistent retrieval of paged, sorted data especially when querying databases.
 
 ---  
 <br>
